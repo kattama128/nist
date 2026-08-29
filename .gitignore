@@ -1,0 +1,28 @@
+# Segreti e configurazione locale
+.env
+
+# Database e log locali
+*.db
+*.db-wal
+*.db-shm
+nvdlocal.log
+
+# Artefatti Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Test e tooling
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Output di lavoro
+*.xlsx
+!tests/fixtures/*.xlsx

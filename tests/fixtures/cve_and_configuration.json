@@ -1,0 +1,126 @@
+{
+  "resultsPerPage": 1,
+  "startIndex": 0,
+  "totalResults": 1,
+  "format": "NVD_CVE",
+  "version": "2.0",
+  "vulnerabilities": [
+    {
+      "cve": {
+        "id": "CVE-2019-0232",
+        "sourceIdentifier": "security@apache.org",
+        "published": "2019-04-15T14:29:00.327",
+        "lastModified": "2023-11-07T03:09:34.020",
+        "vulnStatus": "Modified",
+        "descriptions": [
+          {
+            "lang": "en",
+            "value": "When running on Windows with enableCmdLineArguments enabled, the CGI Servlet in Apache Tomcat 9.0.0.M1 to 9.0.17, 8.5.0 to 8.5.39 and 7.0.0 to 7.0.93 is vulnerable to Remote Code Execution due to a bug in the way the JRE passes command line arguments to Windows."
+          }
+        ],
+        "metrics": {
+          "cvssMetricV31": [
+            {
+              "source": "nvd@nist.gov",
+              "type": "Primary",
+              "cvssData": {
+                "version": "3.1",
+                "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+                "attackVector": "NETWORK",
+                "attackComplexity": "HIGH",
+                "privilegesRequired": "NONE",
+                "userInteraction": "NONE",
+                "scope": "UNCHANGED",
+                "confidentialityImpact": "HIGH",
+                "integrityImpact": "HIGH",
+                "availabilityImpact": "HIGH",
+                "baseScore": 8.1,
+                "baseSeverity": "HIGH"
+              },
+              "exploitabilityScore": 2.2,
+              "impactScore": 5.9
+            }
+          ],
+          "cvssMetricV2": [
+            {
+              "source": "nvd@nist.gov",
+              "type": "Primary",
+              "cvssData": {
+                "version": "2.0",
+                "vectorString": "AV:N/AC:M/Au:N/C:P/I:P/A:P",
+                "baseScore": 6.8
+              },
+              "baseSeverity": "MEDIUM",
+              "exploitabilityScore": 8.6,
+              "impactScore": 6.4
+            }
+          ]
+        },
+        "weaknesses": [
+          {
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "description": [{ "lang": "en", "value": "CWE-78" }]
+          }
+        ],
+        "configurations": [
+          {
+            "operator": "AND",
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:a:apache:tomcat:*:*:*:*:*:*:*:*",
+                    "versionStartIncluding": "7.0.0",
+                    "versionEndIncluding": "7.0.93",
+                    "matchCriteriaId": "9E9B2F6D-6DC1-4B23-9F5C-3A2B0D0D1E7B"
+                  },
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:a:apache:tomcat:*:*:*:*:*:*:*:*",
+                    "versionStartIncluding": "8.5.0",
+                    "versionEndIncluding": "8.5.39",
+                    "matchCriteriaId": "1D5D0F13-95F4-4F55-9D8E-9D4B4F5B2C10"
+                  },
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:a:apache:tomcat:*:*:*:*:*:*:*:*",
+                    "versionStartIncluding": "9.0.0",
+                    "versionEndIncluding": "9.0.17",
+                    "matchCriteriaId": "3B0B5B31-5F7C-4B98-9A25-2E1B2C0A9F44"
+                  }
+                ]
+              },
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": false,
+                    "criteria": "cpe:2.3:o:microsoft:windows:-:*:*:*:*:*:*:*",
+                    "matchCriteriaId": "A2DB5E1D-3E0A-4C0B-9E8F-0F3A1E6D0F3C"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "references": [
+          {
+            "url": "https://lists.apache.org/thread.html/tomcat-announce",
+            "source": "security@apache.org",
+            "tags": ["Mailing List", "Vendor Advisory"]
+          },
+          {
+            "url": "https://www.exploit-db.com/exploits/46812",
+            "source": "cve@mitre.org",
+            "tags": ["Exploit", "Third Party Advisory", "VDB Entry"]
+          }
+        ]
+      }
+    }
+  ]
+}
