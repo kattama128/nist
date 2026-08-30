@@ -34,6 +34,22 @@ def db_file(tmp_path: Path) -> Path:
             "INSERT INTO epss (cve_id, score, percentile, updated) VALUES (?, ?, ?, ?)",
             ("CVE-2021-41773", 0.97542, 0.99981, "2026-08-29"),
         )
+        # Voce sintetica (identificatori volutamente inesistenti) per poter
+        # verificare l'exit code su un risultato di severita' sotto HIGH:
+        # nessuna delle fixture reali ha MEDIUM come metrica migliore.
+        conn.execute(
+            "INSERT INTO cve (cve_id, published, vuln_status, description, "
+            "cvss_version, cvss_score, cvss_severity) "
+            "VALUES ('CVE-1900-0001', '1900-01-01T00:00:00.000', 'Analyzed', "
+            "'voce sintetica di test', '3.1', 5.3, 'MEDIUM')"
+        )
+        conn.execute(
+            "INSERT INTO cpe_match (cve_id, config_index, node_index, negate, "
+            "vulnerable, criteria, part, vendor, product, version) "
+            "VALUES ('CVE-1900-0001', 0, 0, 0, 1, "
+            "'cpe:2.3:a:esempio:prodotto_test:1.0:*:*:*:*:*:*:*', 'a', "
+            "'esempio', 'prodotto_test', '1.0')"
+        )
     conn.close()
     return path
 
@@ -58,7 +74,16 @@ def test_search_exit_code_0_when_nothing_found(db_file: Path) -> None:
 
 
 def test_search_exit_code_0_when_below_high(db_file: Path) -> None:
-    """Trova risultati ma nessuno >= HIGH: exit code 0."""
+    """Trova un risultato MEDIUM: ci sono CVE, ma nessuna >= HIGH -> exit code 0."""
+    result = _run(
+        db_file, "search", "--product", "prodotto_test", "--version", "1.0"
+    )
+    assert result.exit_code == 0
+    assert "CVE-1900-0001" in result.stdout
+    assert "MEDIUM" in result.stdout
+
+
+def test_search_exit_code_0_when_filters_remove_everything(db_file: Path) -> None:
     result = _run(
         db_file,
         "search",
@@ -70,6 +95,13 @@ def test_search_exit_code_0_when_below_high(db_file: Path) -> None:
         "10.0",
     )
     assert result.exit_code == 0
+    assert "Nessuna CVE trovata" in result.stdout
+
+
+def test_search_rejects_meaningless_version(db_file: Path) -> None:
+    result = _run(db_file, "search", "--product", "httpd", "--version", "*")
+    assert result.exit_code == 2
+    assert "versione non valida" in result.output
 
 
 # --------------------------------------------------------------------------- #
@@ -313,3 +345,30 @@ def test_version_flag() -> None:
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
     assert "nvdlocal" in result.stdout
+
+
+def test_enum_options_are_case_insensitive(db_file: Path) -> None:
+    """--min-severity e --format accettano anche minuscolo."""
+    result = _run(
+        db_file,
+        "search",
+        "--product",
+        "httpd",
+        "--version",
+        "2.4.49",
+        "--min-severity",
+        "critical",
+        "--format",
+        "json",
+    )
+    payload = json.loads(result.stdout)
+    assert {r["cve_id"] for r in payload["results"]} == {"CVE-2022-22720"}
+
+
+def test_no_subcommand_shows_help(db_file: Path) -> None:
+    """Con e senza opzioni globali il comportamento dev'essere lo stesso."""
+    bare = runner.invoke(app, [])
+    with_option = _run(db_file)
+    assert bare.exit_code == with_option.exit_code == 2
+    assert "Usage" in bare.output
+    assert "Usage" in with_option.output

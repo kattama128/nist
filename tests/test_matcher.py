@@ -202,6 +202,32 @@ def test_all_versions_can_be_excluded(db: sqlite3.Connection) -> None:
     assert results == []
 
 
+def test_all_versions_excluded_also_when_conditional(db: sqlite3.Connection) -> None:
+    """Il filtro guarda version_match, non match_type.
+
+    Regressione: un match condizionale su un CPE privo di versione sfuggiva a
+    --no-include-all-versions perche' il suo match_type e' 'conditional'.
+    """
+    with db:
+        db.execute(
+            "UPDATE cpe_match SET version = '*', version_start_including = NULL, "
+            "version_end_including = NULL "
+            "WHERE cve_id = 'CVE-2019-0232' AND node_index = 0"
+        )
+    included = search(db, version="1.2.3", product="tomcat", vendor="apache")
+    assert _by_id(included, "CVE-2019-0232").match_type is MatchType.CONDITIONAL
+    assert _by_id(included, "CVE-2019-0232").version_match is MatchType.ALL_VERSIONS
+
+    excluded = search(
+        db,
+        version="1.2.3",
+        product="tomcat",
+        vendor="apache",
+        filters=SearchFilters(include_all_versions=False),
+    )
+    assert excluded == []
+
+
 # --------------------------------------------------------------------------- #
 # Caso 6: configurazione AND multi-nodo -> conditional
 # --------------------------------------------------------------------------- #
@@ -304,9 +330,44 @@ def test_search_by_cpe(db: sqlite3.Connection) -> None:
     assert "CVE-2021-41773" in _ids(results)
 
 
+def test_search_by_cpe_with_wildcard_vendor(db: sqlite3.Connection) -> None:
+    """Vendor ``*``: si risolve per prodotto invece di cercare il vendor letterale."""
+    results = search(
+        db, version="2.4.49", cpe="cpe:2.3:a:*:http_server:2.4.49:*:*:*:*:*:*:*"
+    )
+    assert "CVE-2021-41773" in _ids(results)
+
+
+def test_search_by_cpe_with_wildcard_product_is_rejected(db: sqlite3.Connection) -> None:
+    with pytest.raises(ValueError, match="product concreto"):
+        search(db, version="2.4.49", cpe="cpe:2.3:a:apache:*:2.4.49:*:*:*:*:*:*:*")
+
+
+def test_search_by_cpe_with_unknown_product(db: sqlite3.Connection) -> None:
+    """Un CPE con un refuso non deve restituire "nessuna CVE" come un host pulito."""
+    with pytest.raises(UnknownProductError):
+        search(
+            db, version="2.4.49", cpe="cpe:2.3:a:apache:htp_server:2.4.49:*:*:*:*:*:*:*"
+        )
+
+
 def test_search_requires_product_or_cpe(db: sqlite3.Connection) -> None:
     with pytest.raises(ValueError):
         search(db, version="1.0")
+
+
+@pytest.mark.parametrize("version", ["*", "-", "", "   ", "..."])
+def test_search_rejects_meaningless_version(
+    db: sqlite3.Connection, version: str
+) -> None:
+    """Una versione non confrontabile non deve passare in silenzio.
+
+    Senza il controllo la ricerca restituirebbe comunque i match
+    ``all_versions``, che sembrano una risposta vera mentre in realta' non e'
+    stato confrontato niente.
+    """
+    with pytest.raises(ValueError, match="versione non valida"):
+        search(db, version=version, product="vsftpd")
 
 
 # --------------------------------------------------------------------------- #

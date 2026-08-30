@@ -112,7 +112,9 @@ class SearchFilters(BaseModel):
 
     def keep(self, result: "MatchResult") -> bool:
         """True se il risultato supera tutti i filtri attivi."""
-        if not self.include_all_versions and result.match_type is MatchType.ALL_VERSIONS:
+        # Si guarda version_match e non match_type: un match condizionale puo'
+        # avere comunque un CPE senza versione, e va escluso anche quello.
+        if not self.include_all_versions and result.version_match is MatchType.ALL_VERSIONS:
             return False
         if self.min_severity and severity_rank(result.cvss_severity) < severity_rank(
             self.min_severity
@@ -250,6 +252,14 @@ def _query_candidates(
         )
         for row in conn.execute(sql, params)
     ]
+
+
+def _pair_exists(conn: sqlite3.Connection, pair: tuple[str, str]) -> bool:
+    """True se il database contiene almeno una riga per quel ``vendor:product``."""
+    row = conn.execute(
+        "SELECT 1 FROM cpe_match WHERE vendor = ? AND product = ? LIMIT 1", pair
+    ).fetchone()
+    return row is not None
 
 
 def _candidates_for_pairs(
@@ -435,9 +445,20 @@ def search(
     :param product: nome del prodotto, anche in forma di alias (``httpd``).
     :param vendor: vendor, per disambiguare.
     :param cpe: in alternativa a product/vendor, un CPE 2.3 completo.
+    :raises ValueError: se la versione non e' confrontabile.
     :raises UnknownProductError: se nessun prodotto corrisponde.
     :raises AmbiguousProductError: se il termine e' ambiguo e manca il vendor.
     """
+    # Una versione non confrontabile (vuota, o i valori speciali CPE * e -)
+    # non deve passare in silenzio: senza questo controllo la ricerca
+    # restituirebbe comunque i match all_versions, che sembrano una risposta
+    # vera mentre in realta' non e' stato confrontato nulla.
+    if versions.is_special(version) or not versions.tokenize(version):
+        raise ValueError(
+            f"versione non valida: {version!r}. Indica una versione concreta "
+            "(es. 2.4.52); i valori speciali CPE '*' e '-' non sono versioni."
+        )
+
     filters = filters or SearchFilters()
     pairs = _target_pairs(conn, product=product, vendor=vendor, cpe=cpe)
 
@@ -446,7 +467,7 @@ def search(
     rows = conn.execute(_SELECT_SQL.format(predicate=predicate), params).fetchall()
 
     best: dict[str, MatchResult] = {}
-    context_cache: dict[tuple[str, int], tuple[bool, list[str]]] = {}
+    context_cache: dict[tuple[str, int], tuple[bool, dict[int, list[str]]]] = {}
 
     for row in rows:
         version_match = evaluate_row(row, version)
@@ -497,7 +518,24 @@ def _target_pairs(
             parsed = parse_cpe23(cpe)
         except InvalidCPEError as exc:
             raise ValueError(str(exc)) from exc
-        return [(normalize_name(parsed.vendor), normalize_name(parsed.product))]
+        if versions.is_special(parsed.product):
+            raise ValueError(
+                f"il CPE deve indicare un product concreto, trovato {parsed.product!r}: {cpe!r}"
+            )
+        if versions.is_special(parsed.vendor):
+            # Vendor wildcard: si risolve per prodotto, con le stesse regole di
+            # ambiguita' di --product, invece di cercare il vendor letterale '*'
+            # (che non troverebbe mai nulla).
+            product = parsed.product
+            vendor = None
+        else:
+            pair = (normalize_name(parsed.vendor), normalize_name(parsed.product))
+            # Un CPE con un vendor:product assente dal database non deve dare
+            # "nessuna CVE": in un tool di sicurezza si legge come "host pulito",
+            # mentre e' quasi sempre un refuso nel CPE.
+            if not _pair_exists(conn, pair):
+                raise UnknownProductError(f"{pair[0]}:{pair[1]}")
+            return [pair]
 
     if not product:
         raise ValueError("serve --product oppure --cpe")
@@ -590,18 +628,22 @@ def process_inventory(
     findings: list[BatchFinding] = []
     unresolved: list[BatchUnresolved] = []
 
+    def skipped(
+        row: InventoryRow, reason: str, candidates: list[str] | None = None
+    ) -> BatchUnresolved:
+        return BatchUnresolved(
+            host=row.host,
+            port=row.port,
+            vendor=row.vendor or "",
+            product=row.product,
+            version=row.version,
+            reason=reason,
+            candidates=candidates or [],
+        )
+
     for row in rows:
-        base = {
-            "host": row.host,
-            "port": row.port,
-            "vendor": row.vendor or "",
-            "product": row.product,
-            "version": row.version,
-        }
         if not row.product or not row.version:
-            unresolved.append(
-                BatchUnresolved(**base, reason="product o version mancante")
-            )
+            unresolved.append(skipped(row, "product o version mancante"))
             continue
         try:
             results = search(
@@ -613,26 +655,22 @@ def process_inventory(
             )
         except AmbiguousProductError as exc:
             unresolved.append(
-                BatchUnresolved(
-                    **base,
-                    reason="prodotto ambiguo: specificare il vendor",
-                    candidates=[c.key for c in exc.candidates[:10]],
+                skipped(
+                    row,
+                    "prodotto ambiguo: specificare il vendor",
+                    [c.key for c in exc.candidates[:10]],
                 )
             )
             continue
         except UnknownProductError:
-            unresolved.append(
-                BatchUnresolved(**base, reason="prodotto non presente nel database NVD")
-            )
+            unresolved.append(skipped(row, "prodotto non presente nel database NVD"))
             continue
         except ValueError as exc:
-            unresolved.append(BatchUnresolved(**base, reason=str(exc)))
+            unresolved.append(skipped(row, str(exc)))
             continue
 
         if not results:
-            unresolved.append(
-                BatchUnresolved(**base, reason="nessuna CVE applicabile a questa versione")
-            )
+            unresolved.append(skipped(row, "nessuna CVE applicabile a questa versione"))
             continue
 
         findings.extend(

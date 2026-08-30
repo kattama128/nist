@@ -103,6 +103,66 @@ def test_sync_full_resume(empty_db: sqlite3.Connection, all_items: list) -> None
     assert count_cves(empty_db) == 1
 
 
+def test_sync_full_advances_by_items_received(
+    empty_db: sqlite3.Connection, all_items: list
+) -> None:
+    """Una pagina piu' corta del resultsPerPage dichiarato non deve saltare record.
+
+    Regressione: fidandosi del resultsPerPage dichiarato invece che degli
+    elementi effettivamente ricevuti, la sync saltava i record mancanti e per
+    giunta si dichiarava completata.
+    """
+    seen: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        start = int(request.url.params["startIndex"])
+        seen.append(start)
+        return httpx.Response(
+            200,
+            json={
+                "resultsPerPage": 2000,  # dichiarato...
+                "startIndex": start,
+                "totalResults": len(all_items),
+                "vulnerabilities": all_items[start : start + 1],  # ...ma ne arriva 1
+            },
+        )
+
+    with _client(handler) as client:
+        stats = sync_full(empty_db, client, results_per_page=2000)
+
+    assert seen == list(range(len(all_items)))
+    assert count_cves(empty_db) == len(all_items)
+    assert stats.completed is True
+
+
+def test_sync_incremental_advances_by_items_received(
+    empty_db: sqlite3.Connection, all_items: list
+) -> None:
+    """Stessa regressione, sul percorso incrementale."""
+    recent = (datetime.now(timezone.utc) - timedelta(days=1)).strftime(
+        "%Y-%m-%dT%H:%M:%S.000"
+    )
+    with empty_db:
+        set_meta(empty_db, META_LAST_SYNC, recent)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        start = int(request.url.params["startIndex"])
+        return httpx.Response(
+            200,
+            json={
+                "resultsPerPage": 2000,
+                "startIndex": start,
+                "totalResults": len(all_items),
+                "vulnerabilities": all_items[start : start + 1],
+            },
+        )
+
+    with _client(handler) as client:
+        sync_incremental(empty_db, client)
+
+    assert count_cves(empty_db) == len(all_items)
+
+
 def test_sync_full_handles_empty_page(empty_db: sqlite3.Connection) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=_page([], 0, 0, 2000))

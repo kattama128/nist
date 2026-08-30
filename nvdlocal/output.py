@@ -203,9 +203,9 @@ def write_results(
     elif fmt == "csv":
         payload = results_to_csv(results)
     else:  # table su file: si esporta la versione testuale
-        buffer = Console(file=io.StringIO(), width=200)
-        render_results(results, target, out=buffer)
-        payload = buffer.file.getvalue()  # type: ignore[union-attr]
+        buffer = io.StringIO()
+        render_results(results, target, out=Console(file=buffer, width=200))
+        payload = buffer.getvalue()
 
     if output is None:
         # soft_wrap evita che rich mandi a capo JSON e CSV sulla larghezza del terminale.

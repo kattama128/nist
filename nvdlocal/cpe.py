@@ -105,8 +105,8 @@ def split_components(cpe: str) -> list[str]:
             buf = []
             continue
         buf.append(ch)
-    if escaped:  # backslash finale pendente: lo teniamo com'e'
-        pass
+    # Un eventuale backslash finale pendente resta nel buffer com'e': lo
+    # normalizza unquote().
     parts.append("".join(buf))
     return parts
 

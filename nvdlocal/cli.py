@@ -154,8 +154,11 @@ def main(
     setup_logging(db_path, verbose=verbose)
     ctx.obj = Context(db_path=db_path, verbose=verbose)
     if ctx.invoked_subcommand is None:
-        console.print(ctx.get_help())
-        raise typer.Exit()
+        # markup=False: l'help e' gia' formattato da typer e contiene testo come
+        # "[OPTIONS]" che rich interpreterebbe come tag di stile.
+        console.print(ctx.get_help(), markup=False, highlight=False)
+        # Stesso exit code di 'nvdlocal' senza argomenti: nessun comando eseguito.
+        raise typer.Exit(EXIT_ERROR)
 
 
 # --------------------------------------------------------------------------- #
@@ -264,7 +267,8 @@ def search_cmd(
         Optional[str], typer.Option("--cpe", help="CPE 2.3 completo, in alternativa a --product.")
     ] = None,
     min_severity: Annotated[
-        Optional[Severity], typer.Option("--min-severity", help="Severita' minima.")
+        Optional[Severity],
+        typer.Option("--min-severity", case_sensitive=False, help="Severita' minima."),
     ] = None,
     min_score: Annotated[
         Optional[float], typer.Option("--min-score", help="Score CVSS minimo.")
@@ -283,7 +287,8 @@ def search_cmd(
         ),
     ] = True,
     output_format: Annotated[
-        Format, typer.Option("--format", "-f", help="Formato di output.")
+        Format,
+        typer.Option("--format", "-f", case_sensitive=False, help="Formato di output."),
     ] = Format.table,
     output: Annotated[
         Optional[Path], typer.Option("--output", "-o", help="Scrive il risultato su file.")
@@ -420,7 +425,8 @@ def batch(
         Path, typer.Option("--output", "-o", help="Report .xlsx (o .csv) da produrre.")
     ],
     min_severity: Annotated[
-        Optional[Severity], typer.Option("--min-severity", help="Severita' minima.")
+        Optional[Severity],
+        typer.Option("--min-severity", case_sensitive=False, help="Severita' minima."),
     ] = None,
     min_score: Annotated[
         Optional[float], typer.Option("--min-score", help="Score CVSS minimo.")

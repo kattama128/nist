@@ -276,8 +276,11 @@ def sync_full(
         stats.cves += written
         stats.pages += 1
 
-        page_size = int(payload.get("resultsPerPage") or len(items))
-        start_index += page_size or len(items)
+        # Si avanza degli elementi effettivamente ricevuti, non del
+        # resultsPerPage dichiarato: se l'API restituisce una pagina piu' corta
+        # di quanto dichiara, fidarsi del dichiarato salterebbe record in
+        # silenzio e farebbe pure terminare la sync come se fosse completa.
+        start_index += len(items)
         set_meta(conn, META_FULL_SYNC_INDEX, str(start_index))
         conn.commit()
 
@@ -379,8 +382,8 @@ def sync_incremental(
             stats.cves += upsert_cves(conn, items)
             stats.pages += 1
 
-            page_size = int(payload.get("resultsPerPage") or len(items))
-            start_index += page_size or len(items)
+            # Come nella sync completa: si avanza degli elementi ricevuti.
+            start_index += len(items)
 
             if progress is not None and task_id is not None:
                 progress.update(task_id, completed=stats.cves)

@@ -296,6 +296,8 @@ Il CPE ha versione `*` e **nessun** vincolo di range: formalmente la CVE riguard
 affette) oppure genuinamente universali. Vengono incluse di default ma marcate, e
 l'output stampa un promemoria del loro numero. In un triage con molto rumore,
 escludile con `--no-include-all-versions` — ma sappi che così puoi perdere CVE reali.
+Il filtro guarda il match **a livello di versione**, quindi esclude anche un match
+`conditional` che sotto sotto sia un `all_versions`.
 
 ### `conditional` — vulnerabile **solo se** c'è anche altro
 
@@ -317,6 +319,19 @@ L'output riporta quali altri CPE compongono la condizione:
 perché la condizione potrebbe essere soddisfatta, ma la verifica è manuale.
 Nota che i CPE *dentro* lo stesso nodo `OR` sono alternative fra loro, non requisiti:
 come condizione vengono riportati solo gli **altri nodi** dell'AND.
+
+### Quando `search` si rifiuta di rispondere
+
+In un tool di sicurezza un risultato vuoto si legge come "host pulito", quindi due
+casi che potrebbero produrne uno per sbaglio sono errori espliciti (exit code 2):
+
+- **Versione non confrontabile** — `--version '*'`, `-`, vuota o priva di caratteri
+  alfanumerici. Senza il controllo la ricerca restituirebbe comunque i match
+  `all_versions`, che sembrano una risposta vera mentre in realtà non è stato
+  confrontato nulla.
+- **CPE con un `vendor:product` assente dal database** — quasi sempre un refuso.
+  Un CPE con `vendor` a wildcard viene invece risolto per prodotto, con le stesse
+  regole di ambiguità di `--product`; un CPE con `product` a wildcard è un errore.
 
 ### Cosa viene sempre escluso
 
@@ -490,7 +505,7 @@ Note:
 ## Test
 
 ```bash
-pytest              # 185 test, ~1,3 s
+pytest              # 200 test, ~1,4 s
 ```
 
 I test girano **completamente offline**: nessuna chiamata di rete. Le fixture in
