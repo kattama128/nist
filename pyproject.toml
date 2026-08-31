@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nvdlocal"
+version = "1.0.0"
+description = "Mirror locale del NIST NVD con lookup delle CVE per software e versione"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "httpx>=0.27",
+    "typer>=0.12",
+    "rich>=13.7",
+    "pydantic>=2.7",
+    "python-dotenv>=1.0",
+    "openpyxl>=3.1",
+]
+
+[project.optional-dependencies]
+api = ["fastapi>=0.111", "uvicorn>=0.30"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+nvdlocal = "nvdlocal.cli:run"
+
+[tool.setuptools]
+packages = ["nvdlocal"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

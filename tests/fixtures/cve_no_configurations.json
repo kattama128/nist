@@ -1,0 +1,52 @@
+{
+  "resultsPerPage": 2,
+  "startIndex": 0,
+  "totalResults": 2,
+  "format": "NVD_CVE",
+  "version": "2.0",
+  "vulnerabilities": [
+    {
+      "cve": {
+        "id": "CVE-2023-4128",
+        "sourceIdentifier": "cve@mitre.org",
+        "published": "2023-08-03T20:15:09.947",
+        "lastModified": "2023-11-07T04:22:18.310",
+        "vulnStatus": "Rejected",
+        "descriptions": [
+          {
+            "lang": "en",
+            "value": "Rejected reason: This CVE ID has been rejected or withdrawn by its CVE Numbering Authority."
+          }
+        ],
+        "metrics": {},
+        "references": []
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2024-99999",
+        "sourceIdentifier": "cve@mitre.org",
+        "published": "2024-06-01T00:15:00.000",
+        "lastModified": "2024-06-01T00:15:00.000",
+        "vulnStatus": "Awaiting Analysis",
+        "descriptions": [
+          {
+            "lang": "en",
+            "value": "Placeholder di una CVE in attesa di analisi: nessuna metrica e nessuna configurazione CPE ancora assegnata."
+          }
+        ],
+        "metrics": {},
+        "weaknesses": [
+          {
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "description": [{ "lang": "en", "value": "NVD-CWE-noinfo" }]
+          }
+        ],
+        "references": [
+          { "url": "https://example.org/advisory", "source": "cve@mitre.org", "tags": [] }
+        ]
+      }
+    }
+  ]
+}
